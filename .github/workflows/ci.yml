@@ -49,7 +49,7 @@ jobs:
         working-directory: backend
         env:
           MONGO_URI: mongodb://localhost:27017/expense-tracker
-        run: npm run seed:tasks
+        run: node seedTasksData.js
 
       - name: Run backend tests
         working-directory: backend

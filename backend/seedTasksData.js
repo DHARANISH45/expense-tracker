@@ -1,47 +1,37 @@
-// server/seedTasksData.js
+// backend/seedTasksData.js
 const mongoose = require('mongoose');
+require('dotenv').config();
+const Transaction = require('./models/Transaction');
 
-const MONGO_URL = process.env.MONGO_URI || 'mongodb://localhost:27017/todo-db';
+const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/expense-tracker';
 
-// Define minimal schema
-const taskSchema = new mongoose.Schema({
-    text: String,
-});
-
-const Task = mongoose.model('Task', taskSchema);
-
-async function seedTasks() {
+async function seedTransactions() {
     try {
-        await mongoose.connect(MONGO_URL, {
-            useNewUrlParser: true,
-            useUnifiedTopology: true,
-        });
+        await mongoose.connect(MONGO_URI);
+        console.log('Connected to MongoDB:', MONGO_URI);
 
-        console.log('Connected to MongoDB');
+        // Clear existing transactions
+        await Transaction.deleteMany({});
+        console.log('Cleared existing transactions');
 
-        // Clear existing tasks
-        await Task.deleteMany({});
-
-        // Insert mock tasks
-        await Task.insertMany([
-            { text: 'Send email to client' },
-            { text: 'Buy groceries for the week' },
-            { text: 'Schedule dentist appointment' },
-            { text: 'Finish reading chapter 5' },
-            { text: 'Go for a 30-minute walk' },
-            { text: 'Prepare presentation slides' },
-            { text: 'Call mom' },
-            { text: 'Clean the workspace' },
-            { text: 'Pay electricity bill' },
-            { text: 'Organize photo gallery' },
-        ]);
-        console.log('tasks data seeded');
+        // Insert sample transactions
+        const sampleTransactions = [
+            { amount: 50, type: 'Income', category: 'Salary', description: 'Monthly salary', date: new Date() },
+            { amount: 10, type: 'Expense', category: 'Food', description: 'Lunch', date: new Date() },
+            { amount: 25.5, type: 'Expense', category: 'Transport', description: 'Taxi', date: new Date() },
+            { amount: 100, type: 'Income', category: 'Freelance', description: 'Project payment', date: new Date() }
+        ];
+        
+        const inserted = await Transaction.insertMany(sampleTransactions);
+        console.log(`Inserted ${inserted.length} transactions`);
     } catch (err) {
         console.error('Seeding failed:', err);
         process.exit(1);
     } finally {
         await mongoose.disconnect();
+        console.log('MongoDB disconnected');
+        process.exit(0);
     }
 }
 
-seedTasks();
+seedTransactions();
