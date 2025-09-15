@@ -14,10 +14,10 @@ const sampleTransactions = [
 async function seed() {
   try {
     console.log('Connecting to', MONGO_URI);
-    await mongoose.connect(MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true });
+    await mongoose.connect(MONGO_URI);
     console.log('Connected to MongoDB');
 
-    // Optional: clear existing transactions
+    // Clear existing transactions
     await Transaction.deleteMany({});
     console.log('Cleared existing transactions');
 
@@ -26,6 +26,7 @@ async function seed() {
 
     await mongoose.disconnect();
     console.log('Disconnected and finished seeding');
+    process.exit(0);
   } catch (err) {
     console.error('Seeding error:', err);
     process.exit(1);
