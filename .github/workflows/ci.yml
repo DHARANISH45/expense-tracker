@@ -39,14 +39,7 @@ jobs:
             sleep 2
           done
 
-      - name: Install mongosh (for container health checks)
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y curl gnupg
-          curl -fsSL https://pgp.mongodb.com/server-6.0.asc | sudo gpg -o /usr/share/keyrings/mongodb-server-6.0.gpg --dearmor
-          echo "deb [signed-by=/usr/share/keyrings/mongodb-server-6.0.gpg] https://repo.mongodb.org/apt/ubuntu focal/mongodb-org/6.0 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-6.0.list
-          sudo apt-get update
-          sudo apt-get install -y mongodb-org-shell
+      # no extra mongosh install: use TCP wait and npm seeding
 
       - name: Install backend dependencies
         working-directory: backend
@@ -56,7 +49,7 @@ jobs:
         working-directory: backend
         env:
           MONGO_URI: mongodb://localhost:27017/expense-tracker
-        run: node scripts/seedTasksData.js
+        run: npm run seed:tasks
 
       - name: Run backend tests
         working-directory: backend
