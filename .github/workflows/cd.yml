@@ -22,19 +22,34 @@ jobs:
       # Verify secrets exist before proceeding
       - name: Verify required secrets
         run: |
+          echo "Checking required GitHub Secrets for deployment..."
+          
+          # Check each secret individually with more helpful messages
           if [ -z "${{ secrets.EC2_HOST }}" ]; then
-            echo "::error::EC2_HOST secret is not configured"
+            echo "::error::EC2_HOST secret is not configured in GitHub repository settings"
+            echo "::error::Please add EC2_HOST secret with your server's IP address or hostname"
             exit 1
+          else
+            echo "✓ EC2_HOST secret found"
           fi
+          
           if [ -z "${{ secrets.EC2_USER }}" ]; then
-            echo "::error::EC2_USER secret is not configured"
+            echo "::error::EC2_USER secret is not configured in GitHub repository settings"
+            echo "::error::Please add EC2_USER secret with your SSH username (e.g., ec2-user, ubuntu)"
             exit 1
+          else
+            echo "✓ EC2_USER secret found"
           fi
+          
           if [ -z "${{ secrets.EC2_SSH_KEY }}" ]; then
-            echo "::error::EC2_SSH_KEY secret is not configured"
+            echo "::error::EC2_SSH_KEY secret is not configured in GitHub repository settings"
+            echo "::error::Please add EC2_SSH_KEY secret with your private SSH key"
             exit 1
+          else
+            echo "✓ EC2_SSH_KEY secret found"
           fi
-          echo "All required secrets are properly configured"
+          
+          echo "All required secrets are properly configured! Proceeding with deployment..."
       
       # Then deploy via SSH
       - name: Deploy via SSH
