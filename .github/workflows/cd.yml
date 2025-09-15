@@ -9,15 +9,32 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     
-    # Only run if secrets exist
-    if: ${{ env.EC2_HOST != '' }}
+    # No conditional needed - will skip if secrets don't exist
     env:
-      EC2_HOST: ${{ secrets.EC2_HOST }}
+      # Set an environment variable to indicate we're in CD mode
+      CD_DEPLOYMENT: true
 
     steps:
       # First check out the repository code
       - name: Checkout code
         uses: actions/checkout@v4
+        
+      # Verify secrets exist before proceeding
+      - name: Verify required secrets
+        run: |
+          if [ -z "${{ secrets.EC2_HOST }}" ]; then
+            echo "::error::EC2_HOST secret is not configured"
+            exit 1
+          fi
+          if [ -z "${{ secrets.EC2_USER }}" ]; then
+            echo "::error::EC2_USER secret is not configured"
+            exit 1
+          fi
+          if [ -z "${{ secrets.EC2_SSH_KEY }}" ]; then
+            echo "::error::EC2_SSH_KEY secret is not configured"
+            exit 1
+          fi
+          echo "All required secrets are properly configured"
       
       # Then deploy via SSH
       - name: Deploy via SSH
@@ -28,7 +45,19 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           port: 22
           script: |-
-            cd devops-mern-todo/ 
-            git pull origin main
-            docker-compose down
-            docker-compose up --build -d
+            # Navigate to project directory
+            cd expense-tracker/ || { echo "Failed to navigate to project directory"; exit 1; }
+            
+            # Pull latest changes
+            echo "Pulling latest changes from repository..."
+            git pull origin main || { echo "Failed to pull latest changes"; exit 1; }
+            
+            # Stop running containers
+            echo "Stopping running containers..."
+            docker-compose down || { echo "Warning: Issue stopping containers"; }
+            
+            # Start containers with new build
+            echo "Building and starting containers..."
+            docker-compose up --build -d || { echo "Failed to start containers"; exit 1; }
+            
+            echo "Deployment completed successfully!"
