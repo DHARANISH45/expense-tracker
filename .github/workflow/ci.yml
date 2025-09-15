@@ -1,0 +1,26 @@
+name: MERN CI
+on:
+  push:
+    branches: [main]
+  
+  job:
+  mongo-init:
+    runs-on: ubuntu-latest
+    services:
+      mongo:
+        image: mongo:latest
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd "mongosh --eval 'db.adminCommand(\"ping\")'"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - name: Checkout code
+        run: |
+          unitl nc -z localhost 27017; do
+            echo "Waiting for MongoDB to be ready..."
+            sleep 2
+          done
+            echo "MongoDB is ready!"

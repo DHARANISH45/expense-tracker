@@ -7,7 +7,8 @@
   "test": "jest --runInBand",
   "start": "node server.js",
   "convert-amounts": "node scripts/convert_amounts.js",
-  "convert-dates": "node scripts/convert_dates.js"
+  "convert-dates": "node scripts/convert_dates.js",
+  "seed:tasks": "node scripts/seedTasksData.js"
   },
   "jest": {
     "testEnvironment": "node"
