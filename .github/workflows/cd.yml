@@ -5,54 +5,77 @@ on:
   workflow_dispatch:  # Allow manual trigger
 
 jobs:
-  check-secrets:
+  check-and-deploy:
     runs-on: ubuntu-latest
-    outputs:
-      secrets_ready: ${{ steps.check_secrets.outputs.secrets_ready }}
     steps:
-      - name: Check required secrets
+      # First check for secrets
+      - name: Check for required secrets
         id: check_secrets
         run: |
           SECRETS_READY=true
+          MISSING_SECRETS=""
 
           # Check EC2_HOST
           if [ -z "${{ secrets.EC2_HOST }}" ]; then
-            echo "::error::EC2_HOST secret is missing. Add this in your repository settings."
             SECRETS_READY=false
+            MISSING_SECRETS="$MISSING_SECRETS EC2_HOST"
           fi
 
           # Check EC2_USER
           if [ -z "${{ secrets.EC2_USER }}" ]; then
-            echo "::error::EC2_USER secret is missing. Add this in your repository settings."
             SECRETS_READY=false
+            MISSING_SECRETS="$MISSING_SECRETS EC2_USER"
           fi
 
           # Check EC2_SSH_KEY
           if [ -z "${{ secrets.EC2_SSH_KEY }}" ]; then
-            echo "::error::EC2_SSH_KEY secret is missing. Add this in your repository settings."
             SECRETS_READY=false
+            MISSING_SECRETS="$MISSING_SECRETS EC2_SSH_KEY"
           fi
 
           echo "secrets_ready=$SECRETS_READY" >> $GITHUB_OUTPUT
+          echo "missing_secrets=$MISSING_SECRETS" >> $GITHUB_OUTPUT
           
           if [ "$SECRETS_READY" = "false" ]; then
-            echo "Please follow these instructions to set up deployment:"
-            echo "1. Go to your repository Settings > Secrets and variables > Actions"
-            echo "2. Add the following secrets:"
-            echo "   - EC2_HOST: Your server's IP address or hostname"
-            echo "   - EC2_USER: Your SSH username (e.g., ec2-user, ubuntu)"
-            echo "   - EC2_SSH_KEY: Your private SSH key (including BEGIN and END lines)"
-            exit 1
+            echo "::warning::Missing required secrets:$MISSING_SECRETS"
+            echo "::notice::Deployment will be skipped. See setup instructions below."
           else
-            echo "All secrets are properly configured!"
+            echo "✓ All secrets are properly configured! Proceeding with deployment."
           fi
+      
+      # Provide setup instructions when secrets are missing
+      - name: Deployment Setup Instructions
+        if: steps.check_secrets.outputs.secrets_ready != 'true'
+        run: |
+          echo "====== DEPLOYMENT SETUP INSTRUCTIONS ======"
+          echo ""
+          echo "To enable automatic deployment, add the following secrets:"
+          echo ""
+          if [[ "${{ steps.check_secrets.outputs.missing_secrets }}" == *"EC2_HOST"* ]]; then
+            echo "► EC2_HOST: Your server's IP address or hostname"
+          fi
+          if [[ "${{ steps.check_secrets.outputs.missing_secrets }}" == *"EC2_USER"* ]]; then
+            echo "► EC2_USER: Your SSH username (e.g., ec2-user, ubuntu)"
+          fi
+          if [[ "${{ steps.check_secrets.outputs.missing_secrets }}" == *"EC2_SSH_KEY"* ]]; then
+            echo "► EC2_SSH_KEY: Your private SSH key (including BEGIN and END lines)"
+            echo ""
+            echo "To generate and set up SSH keys:"
+            echo "1. Generate a key: ssh-keygen -t rsa -b 4096 -f deploy_key"
+            echo "2. Add the public key to your server: cat deploy_key.pub >> ~/.ssh/authorized_keys"
+            echo "3. Copy the entire private key content (deploy_key file) as the EC2_SSH_KEY secret"
+          fi
+          echo ""
+          echo "Add these secrets in your GitHub repository:"
+          echo "  Settings > Secrets and variables > Actions > New repository secret"
+          echo ""
+          echo "::notice::Deployment was skipped. Add the required secrets and the workflow will work automatically."
+          # Exit with success so the workflow doesn't fail
+          exit 0
 
-  deploy:
-    needs: check-secrets
-    if: needs.check-secrets.outputs.secrets_ready == 'true'
-    runs-on: ubuntu-latest
-    steps:
+      # Only proceed with deployment if all secrets are configured
       - name: Deploy via SSH
+        if: steps.check_secrets.outputs.secrets_ready == 'true'
         uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.EC2_HOST }}
