@@ -2,20 +2,75 @@ name: MERN CD
 on:
   push:
     branches: [ main ]
+  workflow_dispatch:  # Allow manual trigger
+
 jobs:
+  check-secrets:
+    runs-on: ubuntu-latest
+    outputs:
+      secrets_ready: ${{ steps.check_secrets.outputs.secrets_ready }}
+    steps:
+      - name: Check required secrets
+        id: check_secrets
+        run: |
+          SECRETS_READY=true
+
+          # Check EC2_HOST
+          if [ -z "${{ secrets.EC2_HOST }}" ]; then
+            echo "::error::EC2_HOST secret is missing. Add this in your repository settings."
+            SECRETS_READY=false
+          fi
+
+          # Check EC2_USER
+          if [ -z "${{ secrets.EC2_USER }}" ]; then
+            echo "::error::EC2_USER secret is missing. Add this in your repository settings."
+            SECRETS_READY=false
+          fi
+
+          # Check EC2_SSH_KEY
+          if [ -z "${{ secrets.EC2_SSH_KEY }}" ]; then
+            echo "::error::EC2_SSH_KEY secret is missing. Add this in your repository settings."
+            SECRETS_READY=false
+          fi
+
+          echo "secrets_ready=$SECRETS_READY" >> $GITHUB_OUTPUT
+          
+          if [ "$SECRETS_READY" = "false" ]; then
+            echo "Please follow these instructions to set up deployment:"
+            echo "1. Go to your repository Settings > Secrets and variables > Actions"
+            echo "2. Add the following secrets:"
+            echo "   - EC2_HOST: Your server's IP address or hostname"
+            echo "   - EC2_USER: Your SSH username (e.g., ec2-user, ubuntu)"
+            echo "   - EC2_SSH_KEY: Your private SSH key (including BEGIN and END lines)"
+            exit 1
+          else
+            echo "All secrets are properly configured!"
+          fi
+
   deploy:
+    needs: check-secrets
+    if: needs.check-secrets.outputs.secrets_ready == 'true'
     runs-on: ubuntu-latest
     steps:
-      - name: deploy via SSH
+      - name: Deploy via SSH
         uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
           script: | 
-            cd expense-tracker
-            git pull origin main
+            echo "Starting deployment process..."
+            cd expense-tracker || { echo "Failed to navigate to project directory"; exit 1; }
+            
+            echo "Pulling latest code..."
+            git pull origin main || { echo "Failed to pull latest code"; exit 1; }
+            
+            echo "Stopping containers..."
             docker-compose down
-            docker-compose up -d --build
+            
+            echo "Building and starting containers..."
+            docker-compose up -d --build || { echo "Failed to start containers"; exit 1; }
+            
+            echo "Deployment completed successfully!"
 
      
