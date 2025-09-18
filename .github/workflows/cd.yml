@@ -1,132 +1,21 @@
 name: MERN CD
-
-# This workflow deploys your application to your EC2 instance
-# IMPORTANT: You must add the following secrets in your GitHub repository settings:
-# - EC2_HOST: Your server's IP address or hostname
-# - EC2_USER: Your SSH username (e.g., ec2-user, ubuntu)
-# - EC2_SSH_KEY: Your private SSH key for connecting to the server
-
 on:
-  workflow_dispatch:  # Manual trigger for testing
-  push: 
-    branches: [main]
-
+  push:
+    branches: [ main ]
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    
-    # No conditional needed - will skip if secrets don't exist
-    env:
-      # Set an environment variable to indicate we're in CD mode
-      CD_DEPLOYMENT: true
-
     steps:
-      # First check out the repository code
-      - name: Checkout code
-        uses: actions/checkout@v4
-        
-      # Show instructions for adding secrets before checking them
-      - name: Display secrets setup instructions
-        run: |
-          echo "============================================================"
-          echo "IMPORTANT: This workflow requires GitHub Secrets to be set up"
-          echo "============================================================"
-          echo "If this check fails, follow these steps to add the required secrets:"
-          echo ""
-          echo "1. Go to https://github.com/${{ github.repository }}/settings/secrets/actions"
-          echo "2. Click 'New repository secret'"
-          echo "3. Add each of these secrets:"
-          echo "   - EC2_HOST: Your server's IP address or hostname"
-          echo "   - EC2_USER: Your SSH username (e.g., ec2-user, ubuntu)"
-          echo "   - EC2_SSH_KEY: Your private SSH key for connecting to the server"
-          echo ""
-          echo "Now checking if secrets are configured..."
-      
-      # Check if all required secrets exist
-      - name: Check if secrets exist
-        id: check_secrets
-        run: |
-          MISSING_SECRETS=0
-          
-          # Check EC2_HOST
-          if [ -z "${{ secrets.EC2_HOST }}" ]; then
-            echo "EC2_HOST secret is missing"
-            MISSING_SECRETS=1
-          else
-            echo "✓ EC2_HOST secret found"
-          fi
-          
-          # Check EC2_USER
-          if [ -z "${{ secrets.EC2_USER }}" ]; then
-            echo "EC2_USER secret is missing"
-            MISSING_SECRETS=1
-          else
-            echo "✓ EC2_USER secret found"
-          fi
-          
-          # Check EC2_SSH_KEY
-          if [ -z "${{ secrets.EC2_SSH_KEY }}" ]; then
-            echo "EC2_SSH_KEY secret is missing"
-            MISSING_SECRETS=1
-          else
-            echo "✓ EC2_SSH_KEY secret found"
-          fi
-          
-          # Set output for next steps
-          echo "missing_secrets=$MISSING_SECRETS" >> $GITHUB_OUTPUT
-          
-          if [ "$MISSING_SECRETS" -eq "1" ]; then
-            echo "::warning::Some required secrets are missing. Deployment will be skipped."
-            echo "This is normal if you're setting up the workflow for the first time."
-          else
-            echo "All required secrets are properly configured! Proceeding with deployment..."
-          fi
-      
-      # Show detailed instructions when secrets are missing
-      - name: Provide detailed setup instructions
-        if: steps.check_secrets.outputs.missing_secrets == '1'
-        run: |
-          echo "::notice::To complete setup of the CD workflow, follow these steps:"
-          echo ""
-          echo "1. SSH KEY SETUP:"
-          echo "   - Generate an SSH key pair if you don't have one"
-          echo "   - On your local machine: ssh-keygen -t rsa -b 4096 -C \"deployment-key\""
-          echo "   - Add the public key (.pub file) to ~/.ssh/authorized_keys on your EC2 instance"
-          echo "   - Add the private key content as the EC2_SSH_KEY secret in GitHub"
-          echo ""
-          echo "2. EC2 SETUP:"
-          echo "   - Make sure your EC2 instance has Docker and Docker Compose installed"
-          echo "   - Clone this repository to ~/expense-tracker on your EC2 instance"
-          echo ""
-          echo "3. TEST DEPLOYMENT:"
-          echo "   - After adding all secrets, manually trigger this workflow"
-          echo ""
-          echo "::notice::Deployment skipped - add required secrets to enable deployment"
-          exit 0
-      
-      # Then deploy via SSH
-      - name: Deploy via SSH
-        if: steps.check_secrets.outputs.missing_secrets == '0'
+      - name: deploy via SSH
         uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
-          port: 22
-          script: |-
-            # Navigate to project directory
-            cd expense-tracker/ || { echo "Failed to navigate to project directory"; exit 1; }
-            
-            # Pull latest changes
-            echo "Pulling latest changes from repository..."
-            git pull origin main || { echo "Failed to pull latest changes"; exit 1; }
-            
-            # Stop running containers
-            echo "Stopping running containers..."
-            docker-compose down || { echo "Warning: Issue stopping containers"; }
-            
-            # Start containers with new build
-            echo "Building and starting containers..."
-            docker-compose up --build -d || { echo "Failed to start containers"; exit 1; }
-            
-            echo "Deployment completed successfully!"
+          script: | 
+            cd expense-tracker
+            git pull origin main
+            docker-compose down
+            docker-compose up -d --build
+
+     
